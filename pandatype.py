@@ -8,7 +8,7 @@ def main():
     def key_listener(stdscr):
         stdscr.nodelay(True)  # Make getch non-blocking
         stdscr.clear()
-        stdscr.addstr("Press any key (Press 'q' to quit)...\n")
+        stdscr.addstr("Press any key (Press 'ESC' to quit)...\n")
         
         while True:
             key = stdscr.getch()
