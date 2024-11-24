@@ -10,26 +10,32 @@ def main():
     curses.init_pair(2, curses.COLOR_GREEN, curses.COLOR_BLACK) # Green text, black background
     curses.init_pair(3, curses.COLOR_BLUE, curses.COLOR_WHITE)  # Blue text, white background
 
+    text = "The quick brown fox jumps over the lazy dog."
+
     class TypeText:
         def __init__(self, stdscr, text):
             self.stdscr = stdscr
             self.text = text
-            self.text_index = 0
-
-        def check_key(self, key):
-            """
-            Check if the pressed key is correct
-            """
-            if self.text[self.text_index] == chr(key):
-                return True
-            return False
+            self.user_text = ''
         
-        def print_text(self, key=None):
-            if key and self.check_key(key):
-                self.text_index +=1
-            self.stdscr.addstr(f"{self.text[:self.text_index]}", curses.color_pair(2))
-            self.stdscr.addstr(f"{self.text[self.text_index:]}\n")
+        def print_text(self):
+            for text_idx, letter_text in enumerate(self.text):
+                if text_idx == len(self.user_text):
+                    self.stdscr.addstr(f"{self.text[text_idx:]}")
+                    break
+                elif letter_text == self.user_text[text_idx]:
+                    self.stdscr.addstr(f"{letter_text}", curses.color_pair(2))
+                else:
+                    self.stdscr.addstr(f"{letter_text}", curses.color_pair(1))
+            self.stdscr.addstr("\n")
             return
+        
+        def on_key_press(self, key):
+            if key == 127:
+                self.user_text = self.user_text[:-1]
+            else:
+                self.user_text += chr(key)
+            self.print_text()
 
     def key_listener(stdscr):
         stdscr.nodelay(True)  # Make getch() non-blocking
@@ -41,8 +47,6 @@ def main():
 
         print_quit_message()
 
-        text = "The quick brown fox jumps over the lazy dog."
-
         type_text = TypeText(stdscr, text)
         type_text.print_text()
         
@@ -50,7 +54,7 @@ def main():
             key = stdscr.getch()
             if key != -1:  # If a key is pressed
                 print_quit_message()
-                type_text.print_text(key)
+                type_text.on_key_press(key)
                 stdscr.addstr(f"Key pressed: {key} ('{chr(key)}')\n")
                 stdscr.refresh()
                 if key == 27:  # Exit on 'ESC'
