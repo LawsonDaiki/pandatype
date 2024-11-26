@@ -7,7 +7,7 @@ curses.initscr()
 curses.start_color()
 curses.init_pair(1, curses.COLOR_RED, curses.COLOR_BLACK)   # Red text, black background
 curses.init_pair(2, curses.COLOR_GREEN, curses.COLOR_BLACK) # Green text, black background
-curses.init_pair(3, curses.COLOR_BLUE, curses.COLOR_WHITE)  # Blue text, white background
+curses.init_pair(3, curses.COLOR_MAGENTA, curses.COLOR_BLACK)  # Magenta text, black background
 
 class TypeGame:
     def __init__(self, stdscr, words_list):
@@ -15,27 +15,45 @@ class TypeGame:
         self.start_time = None
         self.run_time = None
         self.words_list = words_list
-        self.text = ''
-        self.user_text = ''
+        self.input_words_list = []
+        self.selected_words_list = []
+        self.is_game_over = False
         self.build_text()
     
     def build_text(self):
-        words_list_20 = random.sample(self.words_list, 20)
-        self.text = " ".join(words_list_20)
+        words_count = 20
+        self.selected_words_list = random.sample(self.words_list, words_count)
 
-    def current_idx(self):
-        return len(self.user_text)
-    
     def start_stopwatch(self):
-        if self.current_idx() == 0:
+        if self.input_words_list and len(self.input_words_list[0]) == 1:
             self.start_time = time.time()
 
-    def elapsed_time(self):
-        if self.has_ended():
+    def handle_game_over(self, key):
+        if key == 32 and len(self.input_words_list) > len(self.selected_words_list):
+            self.is_game_over = True
             if not self.run_time:
                 self.run_time = time.time() - self.start_time
+        if self.is_game_over:
+            self.stdscr.addstr("\nGAME OVER\n", curses.color_pair(1))
+    
+    def reset(self):
+        self.start_time = time.time() # It is like this (and not None) because print_footer_message() will need to call self.elapsed_time() to print 0.00 seconds
+        self.input_words_list = []
+        self.run_time = None
+        self.is_game_over = False
+        self.build_text()
+    
+    def elapsed_time(self):
+        if self.run_time:
             return self.run_time
         return time.time() - self.start_time
+    
+    def idx_exists(self, list, idx):
+        try:
+            list[idx]
+            return True
+        except IndexError:
+            return False
     
     def print_header_message(self):
         self.stdscr.clear()
@@ -50,41 +68,66 @@ class TypeGame:
         self.stdscr.addstr("test type: <>\n")
 
     def print_text(self):
-        for text_idx, letter_text in enumerate(self.text):
-            if text_idx == self.current_idx(): # print the white characters
-                self.stdscr.addstr(f"{self.text[text_idx:]}")
+        for right_word_idx, right_word in enumerate(self.selected_words_list):
+            # 1. print inputed words
+            if self.idx_exists(self.input_words_list, right_word_idx) and self.input_words_list[right_word_idx] != '':
+                # 1.1 print inputed characters
+                for input_char_idx, input_char in enumerate(self.input_words_list[right_word_idx]):
+                    # 1.1.1 check correct and incorrect characters and print them
+                    if self.idx_exists(right_word, input_char_idx):
+                        right_char = right_word[input_char_idx]
+                        if input_char == right_char: # for matching letters, print green characters
+                            self.stdscr.addstr(f"{right_char}", curses.color_pair(2))
+                        else: # for not matching inputs, print red characters
+                            self.stdscr.addstr(f"{right_char}", curses.color_pair(1))
+                    # 1.1.2 if the inputed word has more characters than right word, print the extra characters in magenta
+                    else:
+                        self.stdscr.addstr(f"{input_char}", curses.color_pair(3))
+                
+                # 1.2 print the remainder characters
+                for right_char_idx, right_char in enumerate(right_word):
+                    if not self.idx_exists(self.input_words_list[right_word_idx], right_char_idx):
+                        self.stdscr.addstr(f"{right_char}")
+
+                # 1.3 print space at the end of each word
+                self.stdscr.addstr(f" ")
+            
+            # 2. print the remainder words
+            else:
+                remainder_words = " ".join(self.selected_words_list[right_word_idx:])
+                self.stdscr.addstr(f"{remainder_words}")
                 break
-            elif letter_text == self.user_text[text_idx]: # print the green characters
-                self.stdscr.addstr(f"{letter_text}", curses.color_pair(2))
-            else: # print the red characters
-                self.stdscr.addstr(f"{letter_text}", curses.color_pair(1))
-        self.stdscr.addstr("\n")
     
-    def has_ended(self):
-        return self.current_idx() >= len(self.text)
-    
-    def reset(self):
-        self.user_text = ''
-        self.start_time = time.time() # It is like this (and not None) because print_footer_message() will need self.start_time to call self.elapsed_time() to print 0.00 seconds
-        self.run_time = None
+    def handle_input(self, key):
+        if key == 9: # on key 'Tab' reset game
+            self.reset()
+            return
+        elif key == 32: # on key "Space" jump to the next word
+            if self.input_words_list[-1] == '': # if the user try to press space key in sequence, the game will catch only the first press.
+                return
+            self.input_words_list.append('')
+            return
+        elif key == 127: # on key "Delete" erase last inputed character
+            if self.input_words_list[-1] != '':
+                self.input_words_list[-1] = self.input_words_list[-1][:-1]
+            return
+        elif self.input_words_list:
+            self.input_words_list[-1] += chr(key)
+            return
+        else: # for case when is the first input of the game
+            self.input_words_list.append(chr(key))
     
     def on_key_press(self, key):
-        if key == 127: # on key 'Delete' erase the last input
-            self.user_text = self.user_text[:-1]
-        elif key == 9: # on key 'Tab' reset game
-            self.reset()
-        else:
-            self.start_stopwatch()
-            self.user_text += chr(key)
+        self.handle_input(key)
+        self.start_stopwatch()
         
         self.print_header_message()
         self.print_text()
         self.print_footer_message()
 
-        self.stdscr.addstr(f"\nKey pressed: {key} ('{chr(key)}')\n")
+        #self.stdscr.addstr(f"\nKey pressed: {key} ('{chr(key)}')\n")
 
-        if self.has_ended():
-            self.stdscr.addstr("\nGAME OVER\n", curses.color_pair(1))
+        self.handle_game_over(key)
 
 def select_csv_file():
     words_list = []
