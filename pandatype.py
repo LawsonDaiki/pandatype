@@ -19,6 +19,10 @@ class TypeGame:
         self.words_list = words_list
         self.input_words_list = []
         self.selected_words_list = []
+        self.correct_words_count = 0
+        self.acc = 0
+        self.progress = ''
+        self.wpm = 0
         self.is_game_over = False
         self.build_text()
 
@@ -85,18 +89,19 @@ class TypeGame:
     
     def print_footer_message(self):
         self.print_text("\n")
+        self.print_text(f"progress: {self.progress}\n")
         self.print_text(f"time: {self.elapsed_time():.2f} seconds\n")
-        self.print_text("wpm: <>\n")
-        self.print_text("acc: <>\n\n")
+        self.print_text(f"wpm: {self.wpm:.0f}\n")
+        self.print_text(f"acc: {self.acc:.0f} %\n\n")
         self.print_text("(Press 'Esc' to quit)...\n")
         self.print_text("(Press 'Tab' to reset)...\n\n")
 
     def print_game_text(self):
         for right_word_idx, right_word in enumerate(self.selected_words_list):
-            # 1. print inputed words
+            # 1. print inputted words
             if self.idx_exists(self.input_words_list, right_word_idx) and self.input_words_list[right_word_idx] != "":
                 input_word = self.input_words_list[right_word_idx]
-                # 1.1 print inputed characters
+                # 1.1 print inputted characters
                 for input_char_idx, input_char in enumerate(input_word):
                     # 1.1.1 check correct and incorrect characters and print them
                     if self.idx_exists(right_word, input_char_idx):
@@ -105,7 +110,7 @@ class TypeGame:
                             self.print_typed_text(right_char)
                         else: # for not matching inputs
                             self.print_incorrect_typed_text(right_char)
-                    # 1.1.2 if the inputed word has more characters than right word, print the extra characters in magenta
+                    # 1.1.2 if the inputted word has more characters than right word, print the extra characters in magenta
                     else:
                         self.print_incorrect_typed_text(input_char)
                 
@@ -144,7 +149,7 @@ class TypeGame:
                 return
             self.input_words_list.append('')
             return
-        elif key == 127: # on key "Delete" erase last inputed character
+        elif key == 127: # on key "Delete" erase last inputted character
             if self.input_words_list[-1] != '':
                 self.input_words_list[-1] = self.input_words_list[-1][:-1]
             return
@@ -154,9 +159,27 @@ class TypeGame:
         else: # for case when is the first input of the game
             self.input_words_list.append(chr(key))
     
+    def get_metrics(self):
+        # get correct words
+        self.correct_words_count = 0
+        for input_word_idx, input_word in enumerate(self.input_words_list):
+            if self.idx_exists(self.selected_words_list, input_word_idx) and input_word == self.selected_words_list[input_word_idx]:
+                self.correct_words_count += 1
+        
+        # get accuracy
+        inputted_words_count = len(self.input_words_list) if len(self.input_words_list) < len(self.selected_words_list) else len(self.selected_words_list)
+        self.acc = 0 if inputted_words_count == 0 else self.correct_words_count/inputted_words_count*100
+        
+        # get progress
+        self.progress = f"{inputted_words_count}/{len(self.selected_words_list)}"
+
+        # get wpm
+        self.wpm = 0 if self.elapsed_time() == 0 else self.correct_words_count/self.elapsed_time()*60
+
     def on_key_press(self, key):
         self.handle_input(key)
         self.start_stopwatch()
+        self.get_metrics()
         
         self.print_header_message()
         self.print_game_text()
