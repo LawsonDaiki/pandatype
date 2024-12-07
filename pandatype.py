@@ -212,6 +212,7 @@ def main(words_list):
         type_text.print_footer_message()
         
         while True:
+            time.sleep(.001) # Sleep at each iteration to reduce CPU usage
             key = stdscr.getch()
             if key != -1:  # If a key is pressed
                 if key == 27:  # Exit on 'ESC'
