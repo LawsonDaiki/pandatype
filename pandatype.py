@@ -11,7 +11,7 @@ curses.init_pair(3, curses.COLOR_MAGENTA, curses.COLOR_BLACK)  # Magenta text, b
 curses.init_pair(4, curses.COLOR_BLACK, curses.COLOR_CYAN)  # Black text, cyan background
 curses.init_pair(5, curses.COLOR_BLACK, curses.COLOR_RED)  # Black text, red background
 
-class TypeGame:
+class TypeGame():
     def __init__(self, stdscr, words_list):
         self.stdscr = stdscr
         self.start_time = None
@@ -25,6 +25,7 @@ class TypeGame:
         self.wpm = 0
         self.is_game_over = False
         self.build_text()
+        print(self)
 
     def print_text(self, string):
         self.stdscr.addstr(string, curses.A_DIM)
@@ -55,13 +56,14 @@ class TypeGame:
         if self.input_words_list and len(self.input_words_list[0]) == 1:
             self.start_time = time.time()
 
-    def handle_game_over(self, key):
-        if key == 32 and len(self.input_words_list) > len(self.selected_words_list):
-            self.is_game_over = True
-            if not self.run_time:
-                self.run_time = time.time() - self.start_time
+    def check_game_over(self, key):
+        self.is_game_over = key == 32 and len(self.input_words_list) > len(self.selected_words_list)
+
+    def handle_game_over(self):
         if self.is_game_over:
             self.print_game_over(" GAME OVER \n")
+            if not self.run_time:
+                self.run_time = time.time() - self.start_time
     
     def reset(self):
         self.start_time = None
@@ -85,14 +87,22 @@ class TypeGame:
     def print_header_message(self):
         self.stdscr.clear()
         self.print_title_1(" PANDATYPE \n")
-        self.print_text("test type: english_100\n\n")
+        self.print_text(" test type: english_100\n\n")
     
     def print_footer_message(self):
         self.print_text("\n")
-        self.print_text(f"progress: {self.progress}\n")
-        self.print_text(f"time: {self.elapsed_time():.2f} seconds\n")
-        self.print_text(f"wpm: {self.wpm:.0f}\n")
-        self.print_text(f"acc: {self.acc:.0f} %\n\n")
+
+        if self.is_game_over:
+            self.print_game_over(f" progress {self.progress} \n")
+            self.print_game_over(f" time: {self.elapsed_time():.2f} seconds \n")
+            self.print_game_over(f" wpm: {self.wpm:.0f} \n")
+            self.print_game_over(f" acc: {self.acc:.0f} % \n\n")
+        else:
+            self.print_text(f" progress {self.progress}\n")
+            self.print_text(f" time: {self.elapsed_time():.2f} seconds\n")
+            self.print_text(f" wpm: {self.wpm:.0f}\n")
+            self.print_text(f" acc: {self.acc:.0f} %\n\n")
+
         self.print_text("(Press 'Esc' to quit)...\n")
         self.print_text("(Press 'Tab' to reset)...\n\n")
 
@@ -178,6 +188,7 @@ class TypeGame:
 
     def on_key_press(self, key):
         self.handle_input(key)
+        self.check_game_over(key)
         self.start_stopwatch()
         self.get_metrics()
         
@@ -185,9 +196,9 @@ class TypeGame:
         self.print_game_text()
         self.print_footer_message()
 
-        #self.stdscr.addstr(f"\nKey pressed: {key} ('{chr(key)}')\n")
+        # self.stdscr.addstr(f"\nKey pressed: {key} ('{chr(key)}')\n")
 
-        self.handle_game_over(key)
+        self.handle_game_over()
 
 def select_csv_file():
     words_list = []
@@ -212,7 +223,7 @@ def main(words_list):
         type_text.print_footer_message()
         
         while True:
-            time.sleep(.001) # Sleep at each iteration to reduce CPU usage
+            time.sleep(.01) # Sleep at each iteration to reduce CPU usage
             key = stdscr.getch()
             if key != -1:  # If a key is pressed
                 if key == 27:  # Exit on 'ESC'
