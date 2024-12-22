@@ -1,7 +1,9 @@
+import sys
 import curses
 import time
 import csv
 import random
+from pathlib import Path
 
 curses.initscr()
 curses.start_color()
@@ -12,11 +14,11 @@ curses.init_pair(4, curses.COLOR_BLACK, curses.COLOR_CYAN)  # Black text, cyan b
 curses.init_pair(5, curses.COLOR_BLACK, curses.COLOR_RED)  # Black text, red background
 
 class TypeGame():
-    def __init__(self, stdscr, words_list):
+    def __init__(self, stdscr, words_file_path):
         self.stdscr = stdscr
         self.start_time = None
         self.run_time = None
-        self.words_list = words_list
+        self.words_file_path = words_file_path
         self.input_words_list = []
         self.selected_words_list = []
         self.correct_words_count = 0
@@ -25,7 +27,6 @@ class TypeGame():
         self.wpm = 0
         self.is_game_over = False
         self.build_text()
-        print(self)
 
     def print_text(self, string):
         self.stdscr.addstr(string, curses.A_DIM)
@@ -49,8 +50,15 @@ class TypeGame():
         self.stdscr.addstr(string, curses.color_pair(5) | curses.A_BOLD)
     
     def build_text(self):
-        words_count = 20
-        self.selected_words_list = random.sample(self.words_list, words_count)
+        with self.words_file_path.open(mode='r') as file:
+            csv_reader = csv.reader(file, delimiter='|')
+            if self.words_file_path.as_posix().endswith('quotes.csv'):
+                listed_words = list(csv_reader)
+                random.shuffle(listed_words)
+                self.selected_words_list = listed_words[0][0].split()
+            else:
+                words_sample = random.sample(list(csv_reader), 40)
+                self.selected_words_list = [x[0] for x in words_sample]
 
     def start_stopwatch(self):
         if self.input_words_list and len(self.input_words_list[0]) == 1:
@@ -200,35 +208,79 @@ class TypeGame():
 
         self.handle_game_over()
 
-def select_csv_file():
-    words_list = []
-    with open("words/english/english_100.csv", mode="r") as file:
-        csv_reader = csv.reader(file)
-        for row in csv_reader:
-            if len(row[0]) == 1:
-                continue
-            words_list.append(row[0])
-    return words_list
+def convert_to_int(s):
+    try:
+        return int(s)  # Try converting to integer
+    except ValueError:
+        return
 
-def main(words_list):
+def main():
     """
     Function to execute the core typing game logic.
     """
     def key_listener(stdscr):
         stdscr.nodelay(True)  # Make getch() non-blocking
 
-        type_text = TypeGame(stdscr, words_list)
+        # 1. Initial screen where the user have to select tha language and game mode
+        language_directory = Path.cwd() / 'words'
+        # 1.1 Build text for language selection
+        select_language_text = 'Select language:\n'
+        language_options = {}
+        for idx, language_path in enumerate(language_directory.iterdir()):
+            language = str(language_path).split('/')[-1]
+            select_language_text += f'{idx}. {language}\n'
+            language_options[idx] = language
+        # 1.2 Print select language screen and listen to user input
+        selected_language = None
+        while True:
+            time.sleep(.01) # Sleep at each iteration to reduce CPU usage
+            stdscr.clear()
+
+            if not selected_language:
+                stdscr.addstr(select_language_text)
+                key = stdscr.getch()
+                if key != -1:  # If a key is pressed
+                    if key == 27:  # Exit on 'ESC'
+                        sys.exit()
+                    int_key = convert_to_int(chr(key))
+                    if int_key in language_options.keys():
+                        selected_language = language_options[int_key]
+                        # 1.3 Build text for game mode selection
+                        select_game_mode_text = 'Select game mode: \n'
+                        game_mode_options = {}
+                        selected_language_path = language_directory / selected_language
+                        for idx, game_mode_path in enumerate(selected_language_path.iterdir()):
+                            game_mode = str(game_mode_path).split('/')[-1]
+                            select_game_mode_text += f'{idx}. {game_mode}\n'
+                            game_mode_options[idx] = game_mode
+
+            # 1.4 Print select game mode screen and listen to user input to get selected_game_mode_path
+            else:
+                stdscr.addstr(select_game_mode_text)
+                key = stdscr.getch()
+                if key != -1:  # If a key is pressed
+                    if key == 27:  # Exit on 'ESC'
+                        sys.exit()
+                    int_key = convert_to_int(chr(key))
+                    if int_key in game_mode_options.keys():
+                        selected_game_mode_path = selected_language_path / game_mode_options[int_key]
+                        stdscr.refresh()
+                        break
+
+            stdscr.refresh()
+        
+        # 2. Build TypeGame instance and start game
+        type_text = TypeGame(stdscr, selected_game_mode_path)
         type_text.print_header_message()
         type_text.print_game_text()
         type_text.print_footer_message()
-        
         while True:
             time.sleep(.01) # Sleep at each iteration to reduce CPU usage
             key = stdscr.getch()
             if key != -1:  # If a key is pressed
                 if key == 27:  # Exit on 'ESC'
-                    break
-                
+                    sys.exit()
+
                 type_text.on_key_press(key)
 
                 stdscr.refresh()
@@ -236,5 +288,4 @@ def main(words_list):
     curses.wrapper(key_listener) # Run the curses application
 
 if __name__ == "__main__":
-    words_list = select_csv_file()
-    main(words_list)
+    main()
