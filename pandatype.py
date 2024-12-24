@@ -19,6 +19,7 @@ class TypeGame():
         self.start_time = None
         self.run_time = None
         self.words_file_path = words_file_path
+        self.game_mode = words_file_path.as_posix().split('/')[-1]
         self.input_words_list = []
         self.selected_words_list = []
         self.correct_words_count = 0
@@ -65,7 +66,7 @@ class TypeGame():
             self.start_time = time.time()
 
     def check_game_over(self, key):
-        self.is_game_over = key == 32 and len(self.input_words_list) > len(self.selected_words_list)
+        self.is_game_over = len(self.input_words_list) > len(self.selected_words_list)
 
     def handle_game_over(self):
         if self.is_game_over:
@@ -93,9 +94,8 @@ class TypeGame():
             return False
     
     def print_header_message(self):
-        self.stdscr.clear()
         self.print_title_1(" PANDATYPE \n")
-        self.print_text(" test type: english_100\n\n")
+        self.print_text(f" game mode: {self.game_mode}\n\n")
     
     def print_footer_message(self):
         self.print_text("\n")
@@ -114,7 +114,7 @@ class TypeGame():
         self.print_text("(Press 'Esc' to quit)...\n")
         self.print_text("(Press 'Tab' to reset)...\n\n")
 
-    def print_game_text(self):
+    def print_game_phrase(self):
         for right_word_idx, right_word in enumerate(self.selected_words_list):
             # 1. print inputted words
             if self.idx_exists(self.input_words_list, right_word_idx) and self.input_words_list[right_word_idx] != "":
@@ -157,24 +157,22 @@ class TypeGame():
                 self.print_text_bold(remainder_words)
                 break
         self.stdscr.addstr("\n")
+
+    def print_game_text(self):
+        self.print_header_message()
+        self.print_game_phrase()
+        self.print_footer_message()
     
     def handle_input(self, key):
         if key == 9: # on key 'Tab' reset game
             self.reset()
-            return
-        elif key == 32: # on key "Space" jump to the next word
-            if self.input_words_list[-1] == '': # if the user try to press space key in sequence, the game will catch only the first press.
-                return
+        elif key == 32 and self.input_words_list[-1] != '': # on key "Space" jump to the next word. If the user try to press space key in sequence, the game will catch only the first press.
             self.input_words_list.append('')
-            return
-        elif key == 127: # on key "Delete" erase last inputted character
-            if self.input_words_list[-1] != '':
-                self.input_words_list[-1] = self.input_words_list[-1][:-1]
-            return
-        elif self.input_words_list:
+        elif key == 127 and self.input_words_list[-1] != '': # on key "Delete" erase last inputted character. Don't allow user to delete the previous word
+            self.input_words_list[-1] = self.input_words_list[-1][:-1]
+        elif self.input_words_list: # on a normal key press, append character to last item
             self.input_words_list[-1] += chr(key)
-            return
-        else: # for case when is the first input of the game
+        else: # this is case when is the first input of the game
             self.input_words_list.append(chr(key))
     
     def get_metrics(self):
@@ -200,17 +198,13 @@ class TypeGame():
         self.start_stopwatch()
         self.get_metrics()
         
-        self.print_header_message()
-        self.print_game_text()
-        self.print_footer_message()
-
         # self.stdscr.addstr(f"\nKey pressed: {key} ('{chr(key)}')\n")
 
         self.handle_game_over()
 
-def convert_to_int(s):
+def convert_key_to_int(key):
     try:
-        return int(s)  # Try converting to integer
+        return int(chr(key))  # Try converting to integer
     except ValueError:
         return
 
@@ -218,74 +212,78 @@ def main():
     """
     Function to execute the core typing game logic.
     """
-    def key_listener(stdscr):
+    def pandatype_game(stdscr):
         stdscr.nodelay(True)  # Make getch() non-blocking
 
-        # 1. Initial screen where the user have to select tha language and game mode
+        # decorator for key listener function
+        def key_listener_decorator(func):
+            def listener_wrapper(text_to_print):
+                while True:
+                    time.sleep(.01) # Sleep script at each iteration run to reduce CPU usage
+                    stdscr.clear()
+                    if callable(text_to_print):
+                        text_to_print()
+                    elif isinstance(text_to_print, str):
+                        stdscr.addstr(text_to_print) # print text_to_print outside the condition "if key != -1"
+                    key = stdscr.getch()
+                    func_return = False
+                    if key != -1: # If a key is pressed
+                        # Exit on 'ESC' press
+                        if key == 27:
+                            sys.exit()
+                        func_return = func(key)
+                    stdscr.refresh()
+                    if func_return: break
+                return func_return
+            return listener_wrapper
+
+        # 1. Initial screen where user have to select the language
         language_directory = Path.cwd() / 'words'
-        # 1.1 Build text for language selection
+        # 1.1 Build text for language selection and build language_options dict
         select_language_text = 'Select language:\n'
         language_options = {}
         for idx, language_path in enumerate(language_directory.iterdir()):
             language = str(language_path).split('/')[-1]
             select_language_text += f'{idx}. {language}\n'
             language_options[idx] = language
-        # 1.2 Print select language screen and listen to user input
-        selected_language = None
-        while True:
-            time.sleep(.01) # Sleep at each iteration to reduce CPU usage
-            stdscr.clear()
-
-            if not selected_language:
-                stdscr.addstr(select_language_text)
-                key = stdscr.getch()
-                if key != -1:  # If a key is pressed
-                    if key == 27:  # Exit on 'ESC'
-                        sys.exit()
-                    int_key = convert_to_int(chr(key))
-                    if int_key in language_options.keys():
-                        selected_language = language_options[int_key]
-                        # 1.3 Build text for game mode selection
-                        select_game_mode_text = 'Select game mode: \n'
-                        game_mode_options = {}
-                        selected_language_path = language_directory / selected_language
-                        for idx, game_mode_path in enumerate(selected_language_path.iterdir()):
-                            game_mode = str(game_mode_path).split('/')[-1]
-                            select_game_mode_text += f'{idx}. {game_mode}\n'
-                            game_mode_options[idx] = game_mode
-
-            # 1.4 Print select game mode screen and listen to user input to get selected_game_mode_path
-            else:
-                stdscr.addstr(select_game_mode_text)
-                key = stdscr.getch()
-                if key != -1:  # If a key is pressed
-                    if key == 27:  # Exit on 'ESC'
-                        sys.exit()
-                    int_key = convert_to_int(chr(key))
-                    if int_key in game_mode_options.keys():
-                        selected_game_mode_path = selected_language_path / game_mode_options[int_key]
-                        stdscr.refresh()
-                        break
-
-            stdscr.refresh()
         
-        # 2. Build TypeGame instance and start game
+        # 1.2 Key listening function for languege selection screen
+        @key_listener_decorator
+        def language_selection(key):
+            selected_language_key = convert_key_to_int(key)
+            if selected_language_key in language_options.keys():
+                return language_options[selected_language_key]
+        selected_language = language_selection(select_language_text)
+        selected_language_path = language_directory / selected_language
+
+        # 2. Second screen where use have to select game mode
+        # 2.1 Build text to print for game mode selection and build game_mode_options dict
+        select_game_mode_text = 'Select game mode: \n'
+        game_mode_options = {}
+        for idx, game_mode_path in enumerate(selected_language_path.iterdir()):
+            game_mode = str(game_mode_path).split('/')[-1]
+            select_game_mode_text += f'{idx}. {game_mode}\n'
+            game_mode_options[idx] = game_mode
+
+        # 2.2 Key listening function for game mode selection scree
+        @key_listener_decorator
+        def game_mode_selection(key):
+            selected_game_mode_key = convert_key_to_int(key)
+            if selected_game_mode_key in game_mode_options.keys():
+                return game_mode_options[selected_game_mode_key]
+        selected_game_mode = game_mode_selection(select_game_mode_text)
+        selected_game_mode_path = selected_language_path / selected_game_mode
+        
+        # 3. Build TypeGame instance and start game
         type_text = TypeGame(stdscr, selected_game_mode_path)
-        type_text.print_header_message()
-        type_text.print_game_text()
-        type_text.print_footer_message()
-        while True:
-            time.sleep(.01) # Sleep at each iteration to reduce CPU usage
-            key = stdscr.getch()
-            if key != -1:  # If a key is pressed
-                if key == 27:  # Exit on 'ESC'
-                    sys.exit()
 
-                type_text.on_key_press(key)
+        # 3.1 Key listening function for game input
+        @key_listener_decorator
+        def game_input_listener(key):
+            type_text.on_key_press(key)
+        game_input_listener(type_text.print_game_text)
 
-                stdscr.refresh()
-
-    curses.wrapper(key_listener) # Run the curses application
+    curses.wrapper(pandatype_game) # Run the curses application
 
 if __name__ == "__main__":
     main()
