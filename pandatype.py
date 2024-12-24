@@ -38,9 +38,6 @@ class TypeGame():
     def print_text_bold_ul(self, string):
         self.stdscr.addstr(string, curses.A_DIM | curses.A_BOLD | curses.A_UNDERLINE)
     
-    def print_title_1(self, string):
-        self.stdscr.addstr(string, curses.color_pair(4) | curses.A_BOLD)
-    
     def print_typed_text(self, string):
         self.stdscr.addstr(string, curses.A_BOLD)
     
@@ -92,10 +89,6 @@ class TypeGame():
             return True
         except IndexError:
             return False
-    
-    def print_header_message(self):
-        self.print_title_1(" PANDATYPE \n")
-        self.print_text(f" game mode: {self.game_mode}\n\n")
     
     def print_footer_message(self):
         self.print_text("\n")
@@ -159,7 +152,7 @@ class TypeGame():
         self.stdscr.addstr("\n")
 
     def print_game_text(self):
-        self.print_header_message()
+        self.print_text(f" game mode: {self.game_mode}\n\n") # subtitle
         self.print_game_phrase()
         self.print_footer_message()
     
@@ -221,6 +214,7 @@ def main():
                 while True:
                     time.sleep(.01) # Sleep script at each iteration run to reduce CPU usage
                     stdscr.clear()
+                    stdscr.addstr(" PANDATYPE \n", curses.color_pair(4) | curses.A_BOLD)
                     if callable(text_to_print):
                         text_to_print()
                     elif isinstance(text_to_print, str):
