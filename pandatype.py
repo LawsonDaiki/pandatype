@@ -87,8 +87,7 @@ class TypeGame():
         self.correct_words_count = 0
         self.update_metrics()
 
-    
-    def elapsed_time(self):
+    def get_elapsed_time(self):
         if self.run_time:
             return self.run_time
         return time.time() - self.start_time if self.start_time else 0.0
@@ -96,14 +95,15 @@ class TypeGame():
     def print_footer_message(self):
         # print game metrics
         if self.is_game_over:
-            self.print_game_over(f"\n progress {self.progress} \n time: {self.elapsed_time():.2f} seconds \n wpm: {self.wpm:.0f} \n acc: {self.acc:.0f} % \n\n GAME OVER \n")
+            self.print_game_over(f"\n progress {self.progress} \n time: {self.get_elapsed_time():.2f} seconds \n wpm: {self.wpm:.0f} \n acc: {self.acc:.0f} % \n\n GAME OVER \n")
         else:
-            self.print_text(f"\n progress {self.progress}\n time: {self.elapsed_time():.2f} seconds\n wpm: {self.wpm:.0f}\n acc: {self.acc:.0f} %\n\n")
+            self.print_text(f"\n progress {self.progress}\n time: {self.get_elapsed_time():.2f} seconds\n wpm: {self.wpm:.0f}\n acc: {self.acc:.0f} %\n\n")
 
-        # print quit and reset game messages
+        # print reset game message
         self.print_text("(Press 'Tab' to reset)...\n")
 
     def print_game_phrase(self):
+        # print input characters
         for input_char_status, input_char in self.input_char_status:
             if input_char_status == 'correct':
                 self.print_correctly_typed_char(input_char)
@@ -169,7 +169,7 @@ class TypeGame():
         self.progress = f"{self.cursor_word_idx}/{self.word_count_in_phrase}"
         
         # get wpm
-        self.wpm = 0 if self.elapsed_time() == 0 else self.correct_words_count/self.elapsed_time()*60
+        self.wpm = 0 if self.get_elapsed_time() == 0 else self.correct_words_count/self.get_elapsed_time()*60
 
     def print_game_text(self):
         self.print_text(f" game mode: {self.game_mode}\n\n") # subtitle
