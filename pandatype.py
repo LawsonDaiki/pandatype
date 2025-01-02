@@ -29,29 +29,30 @@ def convert_key_to_int(key):
 class TypeGame():
     def __init__(self, stdscr, words_file_path):
         self.stdscr = stdscr
+        self.words_file_path = words_file_path
+        self.phrase_lenght = 40
+        self.game_mode = words_file_path.as_posix().split('/')[-1]
         self.start_time = None
         self.run_time = None
-        self.words_file_path = words_file_path
-        self.game_mode = words_file_path.as_posix().split('/')[-1]
         self.phrase = []
         self.word_count_in_phrase = 0
+        self.build_phrase()
         self.correct_words_count = 0
         self.acc = 0
         self.progress = ''
         self.wpm = 0
         self.is_game_over = False
-        self.build_phrase()
         self.cursor_word_idx = 0
         self.cursor_char_idx = 0
         self.input_char_status = []
 
-    def print_text(self, string):
+    def print_text_gray(self, string):
         self.stdscr.addstr(string, curses.A_DIM)
 
-    def print_text_bold(self, string):
+    def print_text_gray_bold(self, string):
         self.stdscr.addstr(string, curses.A_DIM | curses.A_BOLD)
     
-    def print_text_bold_ul(self, string):
+    def print_text_gray_bold_underline(self, string):
         self.stdscr.addstr(string, curses.A_DIM | curses.A_BOLD | curses.A_UNDERLINE)
     
     def print_correctly_typed_char(self, string):
@@ -66,12 +67,12 @@ class TypeGame():
     def build_phrase(self):
         with self.words_file_path.open(mode='r') as file:
             csv_reader = csv.reader(file, delimiter='|')
-            if self.words_file_path.as_posix().endswith('quotes.csv'):
+            if self.game_mode.endswith('quotes.csv'): # case when the phrase is a sentence
                 listed_words = list(csv_reader)
                 random.shuffle(listed_words)
                 self.phrase = listed_words[0][0].split()
-            else:
-                words_sample = random.sample(list(csv_reader), 40)
+            else: # case when the phrase are randomly selected words
+                words_sample = random.sample(list(csv_reader), self.phrase_lenght)
                 self.phrase = [x[0] for x in words_sample]
             self.word_count_in_phrase = len(self.phrase)
 
@@ -97,10 +98,10 @@ class TypeGame():
         if self.is_game_over:
             self.print_game_over(f"\n progress {self.progress} \n time: {self.get_elapsed_time():.2f} seconds \n wpm: {self.wpm:.0f} \n acc: {self.acc:.0f} % \n\n GAME OVER \n")
         else:
-            self.print_text(f"\n progress {self.progress}\n time: {self.get_elapsed_time():.2f} seconds\n wpm: {self.wpm:.0f}\n acc: {self.acc:.0f} %\n\n")
+            self.print_text_gray(f"\n progress {self.progress}\n time: {self.get_elapsed_time():.2f} seconds\n wpm: {self.wpm:.0f}\n acc: {self.acc:.0f} %\n\n")
 
         # print reset game message
-        self.print_text("(Press 'Tab' to reset)...\n")
+        self.print_text_gray("(Press 'Tab' to reset)...\n")
 
     def print_game_phrase(self):
         # print input characters
@@ -110,30 +111,30 @@ class TypeGame():
             elif input_char_status == 'incorrect':
                 self.print_incorrectly_typed_char(input_char)
             elif input_char_status == 'not_typed':
-                self.print_text_bold(input_char)
+                self.print_text_gray_bold(input_char)
             elif input_char_status == 'incorrect_extra_char':
                 self.print_incorrectly_typed_char(input_char)
             elif input_char_status == 'space':
-                self.print_text_bold(' ')
+                self.print_text_gray_bold(' ')
 
         # print remainder characters from the current word
         cursor_in_space_char = True
         if idx_exists_in_list(self.phrase, self.cursor_word_idx):
             for relative_idx, remainder_char in enumerate(self.phrase[self.cursor_word_idx][self.cursor_char_idx:]):
                 if relative_idx == 0:
-                    self.print_text_bold_ul(remainder_char)
+                    self.print_text_gray_bold_underline(remainder_char)
                     cursor_in_space_char = False
                 else:
-                    self.print_text_bold(remainder_char)
+                    self.print_text_gray_bold(remainder_char)
 
         # print space before remainder words
         if cursor_in_space_char:
-            self.print_text_bold_ul(' ')
+            self.print_text_gray_bold_underline(' ')
         else:
-            self.print_text_bold(' ')
+            self.print_text_gray_bold(' ')
 
         # print remainder words all at once
-        self.print_text_bold(' '.join(self.phrase[self.cursor_word_idx+1:]))
+        self.print_text_gray_bold(' '.join(self.phrase[self.cursor_word_idx+1:]))
         return
 
     def store_char_status(self, char):
@@ -172,7 +173,7 @@ class TypeGame():
         self.wpm = 0 if self.get_elapsed_time() == 0 else self.correct_words_count/self.get_elapsed_time()*60
 
     def print_game_text(self):
-        self.print_text(f" game mode: {self.game_mode}\n\n") # subtitle
+        self.print_text_gray(f" game mode: {self.game_mode}\n\n") # subtitle
         self.print_game_phrase()
         self.print_footer_message()
     
